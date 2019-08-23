@@ -29,15 +29,15 @@ def load_config(filename):
   # default configurations
   CONFIG.add_hparam('ALLOW_SOFT_PLACEMENT', True)
   CONFIG.add_hparam('LOG_DEVICE_PLACEMENT', False)
-  CONFIG.add_hparam('DATA_TYPE', None)
-  CONFIG.add_hparam('DATA_DIR', None)
+  CONFIG.add_hparam('DATA_TYPE', 'zeroth')
+  CONFIG.add_hparam('DATA_DIR', '/home/artint/바탕화면/논문구현하기/kosr/test/data')
   CONFIG.add_hparam('DATA_SEED', None)
   CONFIG.add_hparam('DATA_ARGS', {})
-  CONFIG.add_hparam('BATCH_SIZE', 128)
+  CONFIG.add_hparam('BATCH_SIZE', 4)
   CONFIG.add_hparam('TEST_MAX_SIZE', 500)
   CONFIG.add_hparam('N_EPOCHS', 100)
   CONFIG.add_hparam('AUDIO_PREPROCESS', 'mfcc_with_delta')
-  CONFIG.add_hparam('AUDIO_N_FEATURES', 13)
+  CONFIG.add_hparam('AUDIO_N_FEATURES', 13)                                     # the number of cepstrum to return
   CONFIG.add_hparam('AUDIO_N_CHANNELS', 3)
   CONFIG.add_hparam('AUDIO_PREPROCESS_ARGS', {})
   CONFIG.add_hparam('TEXT_PREPROCESS', 'jamo_token')
@@ -94,7 +94,7 @@ def _preprocess(data):
                             CONFIG.TEXT_PREPROCESS)
   for (audio_path, text) in data:
     try:
-      audio, samplerate = _sf.read(audio_path)
+      audio, samplerate = _sf.read(audio_path)                          # soindfile.read(audio) return audiodata(2d nparray), samplerate
     except RuntimeError:
       _logging.exception("Exception raised while loading %s:", audio_path)
       try:
@@ -103,9 +103,9 @@ def _preprocess(data):
         pass
     else:
       t = int(100 * audio.shape[0] / samplerate) + 1
-      text = preprocess_text(text, **CONFIG.TEXT_PREPROCESS_ARGS)
+      text = preprocess_text(text, **CONFIG.TEXT_PREPROCESS_ARGS)       #./utils/hangle
       if t < 2000 and t >= 4 * len(text):
-        audio = preprocess_audio(audio, samplerate,
+        audio = preprocess_audio(audio, samplerate,                     #./utils/audio 의 mfcc_with_delta 함수 호출
                                  CONFIG.AUDIO_N_FEATURES,
                                  CONFIG.AUDIO_N_CHANNELS,
                                  **CONFIG.AUDIO_PREPROCESS_ARGS)
@@ -113,6 +113,7 @@ def _preprocess(data):
           yield (audio, audio.shape[0], [0] + text, text + [0], len(text) + 1)
 
 def _create_dataset(data, batch_size, n_epochs):
+    # 여기서 data 는 (오디오 경로, 한글 문장) tuple 형태.
   """Create a Tensorflow dataset with given raw data.
 
   Args:
@@ -124,11 +125,11 @@ def _create_dataset(data, batch_size, n_epochs):
     :obj:`tf.data.Dataset`: Tensorflow dataset.
   """
   shape = ([None, CONFIG.AUDIO_N_FEATURES, CONFIG.AUDIO_N_CHANNELS],
-           [], [None], [None], [])
+           [], [None], [None], [])                                      # 대체 이건 무슨 shape...?
   dataset = _tf.data.Dataset.from_generator(
-      lambda: _preprocess(data),
+      lambda: _preprocess(data),                                        # 위의 _preprocess 함수 호출.
       (_tf.float32, _tf.int32, _tf.int32, _tf.int32, _tf.int32), shape).cache()
-  if n_epochs and n_epochs > 1:  # training
+  if n_epochs and n_epochs > 1:                                         # training
     dataset = dataset.apply(
         _tf.contrib.data.shuffle_and_repeat(len(data) // 10, n_epochs))
     dataset = dataset.apply(
@@ -156,12 +157,15 @@ def load_batches():
     respectively.
   """
   assert _path.isdir(CONFIG.DATA_DIR)
-  load_rawdata = getattr(_import_module("utils.data"), CONFIG.DATA_TYPE)
-  train_set, valid_set, test_set = load_rawdata(CONFIG.DATA_DIR,
+  load_rawdata = getattr(_import_module("utils.data"), CONFIG.DATA_TYPE)   # __import__ : 동적 import
+                                                                           # 어떤 데이터를 쓸것인가 (zeroth(data 폴더 안에 zeroth.txt 안에 다운받는 주소 적혀있음.)
+                                                                           # 사용할 데이터 이름의 함수 호출 (./utils/data.py 의 zeroth 함수 호출)
+
+  train_set, valid_set, test_set = load_rawdata(CONFIG.DATA_DIR,           # utils 폴더에, data.py 에 load_rawdata 함수 호출.
                                                 CONFIG.BATCH_SIZE,
                                                 CONFIG.TEST_MAX_SIZE,
                                                 CONFIG.DATA_SEED,
-                                                **CONFIG.DATA_ARGS)
+                                                **CONFIG.DATA_ARGS)        # return은 data["train"], valid, test
   train_set = _create_dataset(train_set, CONFIG.BATCH_SIZE, CONFIG.N_EPOCHS)
   valid_set = _create_dataset(valid_set, CONFIG.BATCH_SIZE, None)
   test_set = _create_dataset(test_set, CONFIG.BATCH_SIZE, 1)

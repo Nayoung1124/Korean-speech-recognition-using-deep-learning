@@ -46,10 +46,12 @@ def _audio_preprocessor(f):
   return decorated
 
 @_audio_preprocessor
-def mfcc_with_delta(audio, samplerate, n_features, n_channels, **kwargs):
+def mfcc_with_delta(audio, samplerate, n_features, n_channels, **kwargs):        # 이 함수가 호출될때 위의 함수 (preprocessor)에 이 함수가 붙어서 호출됨.
   """Calculate Mel-frequency cepstral coefficients, and calculate delta
   features if requested."""
-  tmp = _features.mfcc(audio, samplerate, numcep=n_features, **kwargs)
+  tmp = _features.mfcc(audio, samplerate, numcep=n_features, **kwargs)           # python_speech_features.mfcc 여기서 audio 는 1d array 여야하는데.. 언제 바뀜?
+                                                                                 # return a numpy array of size containing features.
+                                                                                 # Each row holds 1 feature vector.
   tmp -= _np.mean(tmp, axis=0) + 1e-8
   result = [tmp]
   for _ in range(1, n_channels):

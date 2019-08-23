@@ -34,15 +34,15 @@ class KoSR:
   def __init__(self, sess_dir):
     if _CONFIG.DECODER not in ("CTC", "Att", "CTCAtt"):
       raise NotImplementedError
-    enc_n_units = _CONFIG.ENCODER_ARGS.get("N_UNITS", 1024)
+    enc_n_units = _CONFIG.ENCODER_ARGS.get("N_UNITS", 256)
     dropout_prob = _CONFIG.ENCODER_ARGS.get("DROPOUT_PROB", 0.5)
     bayes_rnn = _CONFIG.ENCODER_ARGS.get("USE_BAYES_RNN", True)
-    dec_n_units = _CONFIG.DECODER_ARGS.get("N_UNITS", 128)
-    embed_dim = _CONFIG.DECODER_ARGS.get("EMBED_DIM", 16)
+    dec_n_units = _CONFIG.DECODER_ARGS.get("N_UNITS", 32)
+    embed_dim = _CONFIG.DECODER_ARGS.get("EMBED_DIM", 8)
     weight = _CONFIG.DECODER_ARGS.get("LAMBDA", 0.2)
     use_jamo_fsm = _CONFIG.DECODER_ARGS.get("USE_JAMO_FSM", False)
     self.labels = _CONFIG.LABELS
-    self.beam_width = _CONFIG.DECODER_ARGS.get("BEAM_WIDTH", 64)
+    self.beam_width = _CONFIG.DECODER_ARGS.get("BEAM_WIDTH", 32) #64
     self.n_samples = _CONFIG.DECODER_ARGS.get("N_SAMPLES", 2)
 
     self.path = _path.join(sess_dir, "model")
@@ -51,7 +51,7 @@ class KoSR:
         allow_soft_placement=_CONFIG.ALLOW_SOFT_PLACEMENT,
         log_device_placement=_CONFIG.LOG_DEVICE_PLACEMENT)
     self.device = _tf.train.replica_device_setter(worker_device="/gpu:0",
-                                                  ps_device="/cpu:0",
+                                                  ps_device="/gpu:0",
                                                   ps_tasks=1)
 
     with _tf.device(self.device):

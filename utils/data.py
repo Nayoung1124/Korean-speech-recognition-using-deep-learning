@@ -85,7 +85,7 @@ def nangdok(data_dir, batch_size, test_max_size, **kwargs):
   return train, valid, test
 
 @_rawdata_loader
-def zeroth(data_dir, batch_size, test_max_size, **kwargs):
+def zeroth(data_dir, batch_size, test_max_size, **kwargs):                # 이 함수는 위의 _rawdata_loader의 뒷부분에 def zeroth 붙인것.
   """Load Zeroth project data."""
   data = {"train": [], "test": []}
   for phase in data:
@@ -94,16 +94,17 @@ def zeroth(data_dir, batch_size, test_max_size, **kwargs):
       with open(_path.join(root, "{0}/{0}_003.trans.txt".format(i)),
                 encoding="utf-8") as f:
         for line in f.readlines():
-          p = _re.compile(r'[0-9]+[_][0-9]+[_][0-9]+')
+          p = _re.compile(r'[0-9]+[_][0-9]+[_][0-9]+')                    # [0-9] : 숫자
           num = p.match(line)
           idx = num.group()
-          p = _re.compile('[^0-9]+[^_0-9].')
-          lab = p.findall(line)
+          p = _re.compile('[^0-9]+[^_0-9].')                              # [^0-9]라는 정규 표현식은 숫자가 아닌 문자만 매치된다.
+          lab = p.findall(line)                                           # 한글 문장 (라벨)을 txt 파일에 있는것을 하나씩 가져오기.
+
           audio_path = _path.join(root, "{0}/{1}.flac".format(i, idx))
-          data[phase].append((audio_path, lab[0][1:]))
+          data[phase].append((audio_path, lab[0][1:]))                    # data: {'train':[(오디오 경로, 한글 문장)(오, 한)...], 'test':[(오디오 경로, 한글 문장), (오, 한)]}
   _random.shuffle(data["test"])
-  valid = data["test"][:batch_size]
-  if test_max_size and batch_size + test_max_size < len(data["test"]):
+  valid = data["test"][:batch_size]                                       # batch_size 만큼의 validationset
+  if test_max_size and batch_size + test_max_size < len(data["test"]):    # testset의 개수를 결정
     test = data["test"][batch_size:(batch_size+test_max_size)]
   else:
     test = data["test"][batch_size:]
