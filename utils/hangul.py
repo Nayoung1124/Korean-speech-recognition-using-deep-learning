@@ -1,7 +1,7 @@
 """Utility module for handling Hangul characters."""
 
 import re as _re
-
+# 한글을 자모로 분리
 INITIALS = list("ㄱㄲㄴㄷㄸㄹㅁㅂㅃㅅㅆㅇㅈㅉㅊㅋㅌㅍㅎ")
 "char list: Hangul initials (초성)"
 

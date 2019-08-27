@@ -47,7 +47,7 @@ if __name__ == "__main__":
   with tf.Session(config=model.config) as sess:
     saver = tf.train.Saver(max_to_keep=1, keep_checkpoint_every_n_hours=1)
     try:
-      saver.restore(sess, tf.train.latest_checkpoint(args.sess_dir))
+      saver.restore(sess, tf.train.latest_checkpoint(args.sess_dir))        # save the checkpoint
     except ValueError:
       log.info("==== TRAINING START ====")
       writers["train"].add_graph(sess.graph)

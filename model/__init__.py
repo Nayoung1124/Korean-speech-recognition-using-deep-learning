@@ -34,15 +34,16 @@ class KoSR:
   def __init__(self, sess_dir):
     if _CONFIG.DECODER not in ("CTC", "Att", "CTCAtt"):
       raise NotImplementedError
-    enc_n_units = _CONFIG.ENCODER_ARGS.get("N_UNITS", 256)
+    enc_n_units = _CONFIG.ENCODER_ARGS.get("N_UNITS", 1024)
     dropout_prob = _CONFIG.ENCODER_ARGS.get("DROPOUT_PROB", 0.5)
     bayes_rnn = _CONFIG.ENCODER_ARGS.get("USE_BAYES_RNN", True)
-    dec_n_units = _CONFIG.DECODER_ARGS.get("N_UNITS", 32)
-    embed_dim = _CONFIG.DECODER_ARGS.get("EMBED_DIM", 8)
+    dec_n_units = _CONFIG.DECODER_ARGS.get("N_UNITS", 128)
+    embed_dim = _CONFIG.DECODER_ARGS.get("EMBED_DIM", 16)        # 논문에 16으로 명시되어있음..
     weight = _CONFIG.DECODER_ARGS.get("LAMBDA", 0.2)
     use_jamo_fsm = _CONFIG.DECODER_ARGS.get("USE_JAMO_FSM", False)
     self.labels = _CONFIG.LABELS
-    self.beam_width = _CONFIG.DECODER_ARGS.get("BEAM_WIDTH", 32) #64
+    self.beam_width = _CONFIG.DECODER_ARGS.get("BEAM_WIDTH",16)  # 원본:64 / 주어진 문자 다음에 선택 될 수 있는 문자의 모든 가능한 경우의 수를 계산하고,
+                                                                 #          미리 정한 상위 'BEAM_WIDTH'개의 확률의 문자 조합만을 취해 목표 문자열 찾는 경험 탐색 알고리즘
     self.n_samples = _CONFIG.DECODER_ARGS.get("N_SAMPLES", 2)
 
     self.path = _path.join(sess_dir, "model")
@@ -58,11 +59,11 @@ class KoSR:
       global_step = _tf.train.get_or_create_global_step()
       self.audio = _tf.placeholder(_tf.float32, [None, None,
                                                  _CONFIG.AUDIO_N_FEATURES,
-                                                 _CONFIG.AUDIO_N_CHANNELS])
-      self.audio_time = _tf.placeholder(_tf.int32, [None])
-      self.sos_text = _tf.placeholder(_tf.int32, [None, None])
-      self.text_eos = _tf.placeholder(_tf.int32, [None, None])
-      self.text_length = _tf.placeholder(_tf.int32, [None])
+                                                 _CONFIG.AUDIO_N_CHANNELS])     # 전처리한 오디오
+      self.audio_time = _tf.placeholder(_tf.int32, [None])                      # 전처리한 오디오의 길이
+      self.sos_text = _tf.placeholder(_tf.int32, [None, None])                  # <sos> 토큰 붙인 text
+      self.text_eos = _tf.placeholder(_tf.int32, [None, None])                  # <eos> 토큰 붙인 text
+      self.text_length = _tf.placeholder(_tf.int32, [None])                     # 전처리된 text의 길이
       self.dropout = _tf.placeholder(_tf.bool)
 
       keep_prob = _tf.cond(self.dropout, lambda: 1.0-dropout_prob, lambda: 1.0)
@@ -83,8 +84,8 @@ class KoSR:
         ctc_loss = self._set_ctc_loss(x_t, xs, y_eos_sp)
 
       if _CONFIG.DECODER[-3:] == "Att":
-        embed_var = _tf.get_variable("embed", [n_labels, embed_dim])
-        decode_var = _tf.nn.rnn_cell.GRUCell(2 * enc_n_units)
+        embed_var = _tf.get_variable("embed", [n_labels, embed_dim])        # embedding dim =16
+        decode_var = _tf.nn.rnn_cell.GRUCell(2 * enc_n_units)               # 128 차원 gru
 
         x = _tf.contrib.seq2seq.tile_batch(x, self.beam_width)
         xs_tile = _tf.contrib.seq2seq.tile_batch(xs, self.beam_width)
@@ -117,12 +118,12 @@ class KoSR:
                                        self._loss, _CONFIG.OPTIM_GRADIENT_CLIP,
                                        global_step)
 
-  def _set_encoder(self, x, xs, n_features, n_units, keep_prob, bayes_rnn):
+  def _set_encoder(self, x, xs, n_features, n_units, keep_prob, bayes_rnn):     # x는 mfcc 거친 전처리된 오디오
     bs = _tf.shape(xs)[0]
     xs = xs // 4
-    x = _tf.contrib.layers.repeat(x, 2, _tf.contrib.layers.conv2d, 64, 3)
-    x = _tf.contrib.layers.max_pool2d(x, (2, 1), (2, 1))
-    x = _tf.contrib.layers.repeat(x, 2, _tf.contrib.layers.conv2d, 128, 3)
+    x = _tf.contrib.layers.repeat(x, 2, _tf.contrib.layers.conv2d, 64, 3)       # filter 64, 3x3 convolution layer 2개
+    x = _tf.contrib.layers.max_pool2d(x, (2, 1), (2, 1))                        # 2x1 maxpooling layer
+    x = _tf.contrib.layers.repeat(x, 2, _tf.contrib.layers.conv2d, 128, 3)      # filter 128, 3x3 convolution layer 2개
     x = _tf.contrib.layers.max_pool2d(x, (2, 1), (2, 1))
     x = _tf.reshape(x, [bs, -1, 128 * n_features])
     cells = [
@@ -134,7 +135,7 @@ class KoSR:
                                        input_size=128 * n_features,
                                        dtype=_tf.float32)
         for _ in range(2)]
-    x, h = _tf.nn.bidirectional_dynamic_rnn(*cells, x, sequence_length=xs,
+    x, h = _tf.nn.bidirectional_dynamic_rnn(*cells, x, sequence_length=xs,      # 1024 차원 메모리를 가지는 bilstm
                                             dtype=_tf.float32)
     h = _tf.concat((h[0][0], h[1][0]), 1)
     x = _tf.concat(x, 2)

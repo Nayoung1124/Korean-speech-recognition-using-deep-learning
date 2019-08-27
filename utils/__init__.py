@@ -45,7 +45,8 @@ def load_config(filename):
   CONFIG.add_hparam('ENCODER_ARGS', {'N_UNITS': 1024,
                                      'DROPOUT_PROB': 0.5,
                                      'USE_BAYES_RNN': True})
-  CONFIG.add_hparam('DECODER', 'CTCAtt')
+  # CONFIG.add_hparam('DECODER', 'CTCAtt')
+  CONFIG.add_hparam('DECODER', 'CTC')
   CONFIG.add_hparam('DECODER_ARGS', {'EMBED_DIM': 16,
                                      'N_UNITS': 128,
                                      'LAMBDA': 0.2,
@@ -131,12 +132,12 @@ def _create_dataset(data, batch_size, n_epochs):
       (_tf.float32, _tf.int32, _tf.int32, _tf.int32, _tf.int32), shape).cache()
   if n_epochs and n_epochs > 1:                                         # training
     dataset = dataset.apply(
-        _tf.contrib.data.shuffle_and_repeat(len(data) // 10, n_epochs))
+        _tf.contrib.data.shuffle_and_repeat(len(data) // 10, n_epochs)) # (buffer_size, count, seed) data shuffle
     dataset = dataset.apply(
         _tf.contrib.data.bucket_by_sequence_length(
             lambda audio, audio_time, sos_text, text_eos, text_length: audio_time,
             [25 * x for x in range(1, 80)],
-            [batch_size] * 20 + [batch_size // 2] * 20 + [batch_size // 4] * 40))
+            [batch_size] * 20 + [batch_size // 2] * 20 + [batch_size // 4] * 40))       # ...
   else:
     dataset =  dataset.repeat(n_epochs).padded_batch(batch_size, shape)
   return dataset.prefetch(batch_size)
@@ -166,7 +167,7 @@ def load_batches():
                                                 CONFIG.TEST_MAX_SIZE,
                                                 CONFIG.DATA_SEED,
                                                 **CONFIG.DATA_ARGS)        # return은 data["train"], valid, test
-  train_set = _create_dataset(train_set, CONFIG.BATCH_SIZE, CONFIG.N_EPOCHS)
+  train_set = _create_dataset(train_set, CONFIG.BATCH_SIZE, CONFIG.N_EPOCHS) # shuffle and.. preprocess
   valid_set = _create_dataset(valid_set, CONFIG.BATCH_SIZE, None)
   test_set = _create_dataset(test_set, CONFIG.BATCH_SIZE, 1)
   return tuple(map(lambda dataset: dataset.make_one_shot_iterator().get_next(),
